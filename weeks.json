@@ -1,0 +1,28 @@
+[
+  {
+    "week": 1,
+    "title": "Eure tägliche Verbindung",
+    "content": "Schafft eine ungestörte Insel im Alltag.",
+    "theme": "survival",
+    "premium": false,
+    "therapistThought": "Die kleinsten Momente verbinden am meisten.",
+    "workbook": {
+      "reflection": "Was bedeutet diese Woche für mich?",
+      "actionSteps": ["Finde täglich 15 Minuten füreinander", "Legt die Handys weg"],
+      "discussionPrompt": "Wann hast du dich mir heute am nächsten gefühlt?"
+    }
+  },
+  {
+    "week": 2,
+    "title": "Teamwork sichtbar machen",
+    "content": "Unsichtbare Arbeit führt oft zu Frust.",
+    "theme": "survival",
+    "premium": true,
+    "therapistThought": "Klarheit ist der erste Schritt zur Anerkennung.",
+    "workbook": {
+      "reflection": "Wie kann ich meine Arbeit besser zeigen?",
+      "actionSteps": ["Liste alle Aufgaben auf", "Markiere Farben", "Teilt eine Aufgabe neu"],
+      "discussionPrompt": "Welche Aufgabe schätzt du am meisten?"
+    }
+  }
+]

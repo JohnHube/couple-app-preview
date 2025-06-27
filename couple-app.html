@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Couple App Vorschau</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script> 
+
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script> 
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script> 
+
+    <!-- Babel für JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script> 
+
+    <!-- react-icons -->
+    <script src="https://unpkg.com/react-icons@4.12.0/lib/index.js"></script> 
+
+    <!-- Schriftarten -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&family=Inter:wght@400;500;600;700&display=swap');
+        :root {
+            --brand-indigo: #4f46e5; 
+            --brand-green: #10b981;
+            --brand-sand: #fdfaf6;
+            --brand-earth: #6b5a4b;
+            --text-primary: #3d405b;
+            --text-secondary: #6b7280;
+        }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--brand-sand); 
+            color: var(--text-primary);
+        }
+        h1, h2, h3, h4, .font-serif {
+            font-family: 'Lora', serif;
+        }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .cursor-pointer { cursor: pointer; }
+    </style>
+</head>
+<body class="min-h-screen bg-[var(--brand-sand)]">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, createContext, useContext } = React;
+
+        // --- ICONS ---
+        const { Zap, Smile, Heart, LifeBuoy, Users, Star, Check, Gift, Home, BookOpen, Lock } = window.ReactIcons;
+
+        // --- DATA GENERATION ---
+        const [weeklyTips, setWeeklyTips] = useState([]);
+
+        useEffect(() => {
+            fetch('weeks.json')
+                .then(res => res.json())
+                .then(data => setWeeklyTips(data));
+        }, []);
+
+        // --- CONTEXT ---
+        const AppContext = createContext();
+        const useApp = () => useContext(AppContext);
+
+        const AppProvider = ({ children }) => {
+            const [user, setUser] = useState(null);
+            const [route, setRoute] = useState({ name: 'login', params: {} });
+            const [workbookData, setWorkbookData] = useState({});
+            const [showCheckIn, setShowCheckIn] = useState(false);
+            const [checkInData, setCheckInData] = useState({ stress: 3, energy: 3, connection: 3 });
+            const [showSOS, setShowSOS] = useState(false);
+            const [isPremium, setIsPremium] = useState(false);
+            const [showPaywall, setShowPaywall] = useState(false);
+            const [showReferral, setShowReferral] = useState(false);
+
+            const couple = { weeksCompleted: weeklyTips.filter(tip => {
+                const state = workbookData[`week-${tip.week}`];
+                return state && state.completed;
+            }).length };
+
+            const navigate = (path) => {
+                const parts = path.split('/');
+                let cleanPath = parts[1] || 'dashboard';
+                if (cleanPath === 'week') {
+                    const tipId = parseInt(parts[2]);
+                    const tip = weeklyTips.find(t => t.week === tipId);
+                    if (tip && tip.premium && !isPremium) {
+                        setShowPaywall(true);
+                    } else {
+                        setRoute({ name: 'week', params: { id: tipId } });
+                    }
+                } else if (cleanPath === 'stories') {
+                    setRoute({ name: 'stories', params: {} });
+                } else {
+                    setRoute({ name: 'dashboard', params: {} });
+                }
+            };
+
+            const login = (name) => {
+                setUser({ firstName: name });
+                navigate('/');
+            };
+
+            const logout = () => {
+                setUser(null);
+                setWorkbookData({});
+                setIsPremium(false);
+                setRoute({ name: 'login' });
+            };
+
+            const updateWorkbook = (weekId, type, value) => {
+                const weekKey = `week-${weekId}`;
+                setWorkbookData(prev => {
+                    const weekState = prev[weekKey] || { reflections: '', steps: {}, completed: false };
+                    if (type === 'reflection') {
+                        weekState.reflections = value;
+                    } else if (type === 'step') {
+                        const newSteps = {...weekState.steps};
+                        newSteps[value] = !newSteps[value];
+                        weekState.steps = newSteps;
+                    } else if (type === 'completed') {
+                        weekState.completed = true;
+                    }
+                    return { ...prev, [weekKey]: weekState };
+                });
+            };
+
+            const completeWeek = (weekId) => {
+                const weekKey = `week-${weekId}`;
+                const isCompleted = workbookData[weekKey]?.completed;
+                if (!isCompleted) {
+                    updateWorkbook(weekId, 'completed', true);
+                }
+            };
+
+            const upgradeToPremium = () => {
+                setIsPremium(true);
+                setShowPaywall(false);
+            };
+
+            const value = {
+                user,
+                isAuthenticated: !!user,
+                login,
+                logout,
+                navigate,
+                route,
+                weeklyTips,
+                workbookData,
+                updateWorkbook,
+                completeWeek,
+                showCheckIn,
+                setShowCheckIn,
+                checkInData,
+                setCheckInData,
+                showSOS,
+                setShowSOS,
+                isPremium,
+                upgradeToPremium,
+                showPaywall,
+                setShowPaywall,
+                showReferral,
+                setShowReferral
+            };
+
+            return (
+                <AppContext.Provider value={value}>
+                    {children}
+                </AppContext.Provider>
+            );
+        };
+
+        // --- COMPONENTS ---
+        const Card = ({ children, className = "", ...props }) => (
+            <div className={`bg-white rounded-xl shadow-sm ${className}`} {...props}>
+                {children}
+            </div>
+        );
+
+        const Button = ({ onClick, variant = "primary", className = "", children }) => {
+            const base = "w-full text-center px-4 py-3 rounded-lg font-semibold transition-all duration-200 focus:outline-none";
+            const variants = {
+                primary: "bg-[--brand-indigo] text-white hover:bg-indigo-700",
+                secondary: "bg-slate-200 text-slate-800 hover:bg-slate-300"
+            };
+            return (
+                <button onClick={onClick} className={`${base} ${variants[variant]} ${className}`}>
+                    {children}
+                </button>
+            );
+        };
+
+        const Modal = ({ show, onClose, children }) => {
+            if (!show) return null;
+            return (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+                    <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl" onClick={e => e.stopPropagation()}>
+                        {children}
+                    </div>
+                </div>
+            );
+        };
+
+        const DailyCheckinModal = () => {
+            const { showCheckIn, setShowCheckIn, setShowSOS, checkInData, setCheckInData } = useApp();
+
+            const handleSliderChange = (key, value) => {
+                setCheckInData(prev => ({...prev, [key]: parseInt(value)}));
+            };
+
+            const submitCheckin = () => {
+                setShowCheckIn(false);
+                if (checkInData.stress > 3 && checkInData.connection < 3) {
+                    setShowSOS(true);
+                }
+            };
+
+            const Slider = ({ label, value, icon: Icon, color, onSliderChange }) => (
+                <div>
+                    <label className={`flex items-center gap-2 font-medium text-slate-700 mb-2`}>
+                        <Icon className={`w-5 h-5 ${color}`} />{label}
+                    </label>
+                    <input type="range" min="1" max="5" value={value} onChange={onSliderChange} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" />
+                </div>
+            );
+
+            return (
+                <Modal show={showCheckIn} onClose={() => setShowCheckIn(false)}>
+                    <div className="p-6">
+                        <h3 className="font-serif text-2xl text-center mb-4">Täglicher Check-in</h3>
+                        <div className="space-y-6">
+                            <Slider label="Stresslevel" value={checkInData.stress} icon={Zap} color="text-red-500" onSliderChange={(e) => handleSliderChange('stress', e.target.value)} />
+                            <Slider label="Energielevel" value={checkInData.energy} icon={Smile} color="text-yellow-500" onSliderChange={(e) => handleSliderChange('energy', e.target.value)} />
+                            <Slider label="Verbindung" value={checkInData.connection} icon={Heart} color="text-pink-500" onSliderChange={(e) => handleSliderChange('connection', e.target.value)} />
+                        </div>
+                        <Button onClick={submitCheckin} className="mt-8 w-full">Speichern & Tag beginnen</Button>
+                    </div>
+                </Modal>
+            );
+        };
+
+        const SOSKitModal = () => {
+            const { showSOS, setShowSOS } = useApp();
+            const [activeDrill, setActiveDrill] = useState(null);
+            const drills = {
+                breath: {
+                    title: "Geführte Atemübung",
+                    content: "Atmet gemeinsam tief ein und aus. 4 Sekunden ein, 4 Sekunden halten, 6 Sekunden aus. Wiederholt dies 5 Mal."
+                },
+                appreciation: {
+                    title: "Express-Wertschätzung",
+                    content: "Sagt euch gegenseitig eine Sache, die ihr heute am anderen geschätzt habt."
+                }
+            };
+
+            const closeAndReset = () => {
+                setShowSOS(false);
+                setActiveDrill(null);
+            };
+
+            return (
+                <Modal show={showSOS} onClose={closeAndReset}>
+                    <div className="p-8 text-center">
+                        <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                            <LifeBuoy className="h-6 w-6 text-red-600" />
+                        </div>
+                        <h3 className="font-serif text-2xl text-slate-800">SOS-Notfall-Kit</h3>
+                        {activeDrill ? (
+                            <div>
+                                <h4 className="font-bold text-lg mb-2">{drills[activeDrill].title}</h4>
+                                <p className="text-slate-600 mb-6">{drills[activeDrill].content}</p>
+                                <Button variant="secondary" onClick={() => setActiveDrill(null)}>Zurück zum SOS-Kit</Button>
+                            </div>
+                        ) : (
+                            <>
+                                <p className="text-slate-600 mt-2 mb-6">Wir haben bemerkt, dass es gerade angespannt ist.</p>
+                                <div className="space-y-3">
+                                    <Button variant="secondary" onClick={() => setActiveDrill('breath')}>Geführte Atemübung</Button>
+                                    <Button variant="secondary" onClick={() => setActiveDrill('appreciation')}>Express-Wertschätzung</Button>
+                                </div>
+                                <button onClick={closeAndReset} className="text-sm text-slate-500 mt-4 hover:underline">Nein danke, alles in Ordnung.</button>
+                            </>
+                        )}
+                    </div>
+                </Modal>
+            );
+        };
+
+        const PaywallModal = () => {
+            const { showPaywall, setShowPaywall, upgradeToPremium } = useApp();
+            return (
+                <Modal show={showPaywall} onClose={() => setShowPaywall(false)}>
+                    <div className="p-8 text-center">
+                        <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-indigo-100 mb-4">
+                            <Star className="h-6 w-6 text-indigo-600" />
+                        </div>
+                        <h3 className="text-2xl font-bold text-slate-800">CouplePlus freischalten</h3>
+                        <p className="text-slate-600 mt-2 mb-6">Investiert gemeinsam in eure Beziehung. Ein Preis schaltet alle Premium-Funktionen frei.</p>
+                        <div className="space-y-3 text-left bg-slate-50 p-4 rounded-lg mb-6">
+                            <p className="flex items-center gap-3"><Check className="text-green-500 w-5 h-5" /> Zugriff auf alle 52 Wocheninhalte</p>
+                            <p className="flex items-center gap-3"><Check className="text-green-500 w-5 h-5" /> Gemeinsamer Kalender & Tools</p>
+                            <p className="flex items-center gap-3"><Check className="text-green-500 w-5 h-5" /> Persönlicher Fortschritt & Notizen</p>
+                        </div>
+                        <Button onClick={upgradeToPremium} variant="primary"><Star /> Jetzt upgraden</Button>
+                        <button onClick={() => setShowPaywall(false)} className="text-sm text-slate-500 mt-4 hover:underline block">Vielleicht später</button>
+                    </div>
+                </Modal>
+            );
+        };
+
+        const ReferralModal = () => {
+            const { showReferral, setShowReferral } = useApp();
+            const [copied, setCopied] = useState(false);
+            const referralLink = "https://couple.app/invite/aB1cD2eF"; 
+
+            const handleCopy = () => {
+                const ta = document.createElement("textarea");
+                ta.value = referralLink;
+                document.body.appendChild(ta);
+                ta.select();
+                try {
+                    document.execCommand('copy');
+                    setCopied(true);
+                } catch (err) {
+                    console.error("Kopieren fehlgeschlagen", err);
+                }
+                document.body.removeChild(ta);
+                setTimeout(() => setCopied(false), 2000);
+            };
+
+            return (
+                <Modal show={showReferral} onClose={() => setShowReferral(false)}>
+                    <div className="p-8 text-center">
+                        <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-pink-100 mb-4">
+                            <Gift className="h-6 w-6 text-pink-600" />
+                        </div>
+                        <h3 className="font-serif text-2xl text-slate-800">Freunden helfen</h3>
+                        <p className="text-slate-600 mt-2 mb-6">Schenke einem befreundeten Paar 4 Premium-Wochen.</p>
+                        <div className="relative bg-slate-100 rounded-lg p-4 flex items-center justify-between mb-4">
+                            <span className="text-slate-700 font-mono text-sm truncate pr-20">{referralLink}</span>
+                            <button onClick={handleCopy} className="absolute right-2 top-1/2 -translate-y-1/2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-1 px-3 rounded-md text-sm transition-all">
+                                {copied ? "Kopiert!" : "Kopieren"}
+                            </button>
+                        </div>
+                        <Button onClick={() => setShowReferral(false)} variant="secondary">Schließen</Button>
+                    </div>
+                </Modal>
+            );
+        };
+
+        const LoginPage = () => {
+            const { login } = useApp();
+            const [name, setName] = useState("");
+            return (
+                <div className="min-h-screen bg-brand-sand flex items-center justify-center p-4">
+                    <Card className="p-8 w-full max-w-md mx-auto">
+                        <h1 className="font-serif text-4xl font-bold text-center text-text-primary mb-2">CoupleApp</h1>
+                        <p className="text-center text-text-secondary mb-8">Stärkt eure Beziehung als neue Eltern.</p>
+                        <form onSubmit={(e) => {
+                            e.preventDefault();
+                            if (name.trim()) login(name.trim());
+                        }}>
+                            <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-1">Dein Vorname</label>
+                            <input
+                                type="text"
+                                id="name"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                placeholder="Alex"
+                                required
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                            <Button className="mt-4 w-full">Einloggen</Button>
+                        </form>
+                    </Card>
+                </div>
+            );
+        };
+
+        const DashboardLayout = ({ children }) => {
+            const { user, logout, navigate, route, setShowReferral } = useApp();
+            if (!user) return <LoginPage />;
+            return (
+                <div className="min-h-screen bg-brand-sand pb-24">
+                    <header className="bg-white/80 backdrop-blur-lg border-b sticky top-0 z-10">
+                        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+                            <div className="flex items-center justify-between h-16">
+                                <div onClick={() => navigate('/')} className="font-serif text-xl font-bold text-indigo-600 cursor-pointer">CoupleApp</div>
+                                <button onClick={() => navigate('/')} className="text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors">Logout</button>
+                            </div>
+                        </div>
+                    </header>
+                    <main className="max-w-5xl mx-auto py-8 px-4 sm:px-6 lg:px-8">{children}</main>
+                    <footer className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-t-lg z-20">
+                        <div className="max-w-5xl mx-auto px-4 h-16 flex justify-around items-center">
+                            <NavLink to="dashboard" icon={Home} label="Start" />
+                            <NavLink to="stories" icon={BookOpen} label="Wochen" />
+                            <button onClick={() => setShowReferral(true)} className="flex flex-col items-center justify-center text-center px-2 py-1 rounded-md w-20 text-slate-500 hover:bg-slate-100">
+                                <Gift className="w-6 h-6 text-slate-400 mb-0.5" />
+                                <span className="text-xs font-medium">Einladen</span>
+                            </button>
+                        </div>
+                    </footer>
+                </div>
+            );
+        };
+
+        const DashboardPage = () => {
+            const { user, couple, weeklyTips, navigate, setShowCheckIn } = useApp();
+            if (!user || !couple || weeklyTips.length === 0) return null;
+
+            return (
+                <DashboardLayout>
+                    <h1 className="font-serif text-4xl mb-4">Hallo, {user.firstName}!</h1>
+                    <Card className="mb-8 p-6 bg-indigo-600 text-white cursor-pointer hover:bg-indigo-700" onClick={() => setShowCheckIn(true)}>
+                        <h2 className="font-serif text-2xl mb-2">Wie geht es euch heute?</h2>
+                        <p>Tägliches Check-in starten</p>
+                    </Card>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <div className="md:col-span-1">
+                            <RelationshipTree weeksCompleted={couple.weeksCompleted} />
+                        </div>
+                        <div className="md:col-span-2">
+                            <h3 className="font-serif text-2xl mb-4">Wöchentliche Übungen</h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {weeklyTips.slice(0, 6).map(tip => (
+                                    <div key={tip.week} onClick={() => navigate(`/week/${tip.week}`)} className="cursor-pointer">
+                                        <Card>{tip.title}</Card>
+                                    </div>
+                                ))}
+                            </div>
+                            <Button onClick={() => navigate('/stories')} variant="secondary" className="mt-4">Alle 52 Wochen anzeigen</Button>
+                        </div>
+                    </div>
+                </DashboardLayout>
+            );
+        };
+
+        const WeeklyTipPage = () => {
+            const { route, navigate, weeklyTips, workbookData, updateWorkbook, completeWeek } = useApp();
+            const tipId = route.params.id;
+            const tip = weeklyTips.find(t => t.week === tipId);
+            if (!tip) return <DashboardLayout><Card>Fehler: Woche nicht gefunden</Card></DashboardLayout>;
+
+            const data = workbookData[`week-${tip.week}`] || { reflections: '', steps: {}, completed: false };
+
+            return (
+                <DashboardLayout>
+                    <div className="bg-white rounded-xl shadow p-6 sm:p-8">
+                        <button onClick={() => navigate('/stories')} className="text-indigo-600 mb-4">&larr; Zurück</button>
+                        <h2 className="font-serif text-3xl text-text-primary mb-3">Woche {tip.week}</h2>
+                        <h4 className="font-semibold text-text-primary text-xl mb-6">{tip.title}</h4>
+                        <p className="text-lg text-text-secondary mb-8">{tip.content}</p>
+                        <div className="space-y-6 max-w-3xl">
+                            <div>
+                                <h3 className="font-serif text-xl text-gray-800 mb-3">Aktionsschritte</h3>
+                                <div className="space-y-3">
+                                    {tip.workbook.actionSteps.map((step, i) => (
+                                        <div key={i} className="flex items-center">
+                                            <input id={`step-${i}`} type="checkbox" checked={!!data.steps[i]} onChange={() => updateWorkbook(tip.week, 'step', i)} className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                                            <label htmlFor={`step-${i}`} className="ml-3 block text-sm text-slate-700">{step}</label>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <h3 className="font-serif text-xl text-gray-800 mb-3">Persönliche Reflexion</h3>
+                                <textarea value={data.reflections} onChange={(e) => updateWorkbook(tip.week, 'reflection', e.target.value)} className="w-full h-32 p-3 border border-slate-300 rounded-lg" placeholder="Was bedeutet diese Woche für mich?"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </DashboardLayout>
+            );
+        };
+
+        const AllWeeksPage = () => {
+            const { weeklyTips, navigate, isPremium } = useApp();
+            return (
+                <DashboardLayout>
+                    <div className="mb-8">
+                        <h2 className="font-serif text-3xl text-text-primary mb-2">Alle Übungen</h2>
+                        <p className="text-lg text-text-secondary">Finde alle 52 Wochen-Themen im Überblick.</p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {weeklyTips.map(tip => (
+                            <div key={tip.week} onClick={() => navigate(`/week/${tip.week}`)} className="cursor-pointer">
+                                <Card className="relative p-5 hover:shadow-lg hover:-translate-y-1 duration-300">
+                                    {tip.premium && !isPremium && (
+                                        <div className="absolute top-3 right-3 text-amber-400">
+                                            <Lock className="w-4 h-4" />
+                                        </div>
+                                    )}
+                                    <span className="inline-block px-2 py-1 text-xs font-semibold rounded-full mb-3 bg-green-100 text-green-800">Woche {tip.week}</span>
+                                    <h4 className="font-semibold text-text-primary text-sm">{tip.title}</h4>
+                                </Card>
+                            </div>
+                        ))}
+                    </div>
+                </DashboardLayout>
+            );
+        };
+
+        const MainApp = () => {
+            const { route, isAuthenticated } = useApp();
+            if (!isAuthenticated) return <LoginPage />;
+            let pageComponent;
+            switch(route.name) {
+                case 'week': pageComponent = <WeeklyTipPage />; break;
+                case 'stories': pageComponent = <AllWeeksPage />; break;
+                default: pageComponent = <DashboardPage />; break;
+            }
+            return (
+                <>
+                    <DailyCheckinModal />
+                    <SOSKitModal />
+                    <PaywallModal />
+                    <ReferralModal />
+                    {pageComponent}
+                </>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<AppProvider><MainApp /></AppProvider>);
+    </script>
+</body>
+</html>
